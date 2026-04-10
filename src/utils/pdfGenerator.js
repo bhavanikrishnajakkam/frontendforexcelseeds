@@ -9,34 +9,31 @@ export const generateLabelsPDF = async (labelNumbers, qrsPerPage = 20) => {
   for (let i = 0; i < labelNumbers.length; i++) {
     const label = labelNumbers[i];
     
-    // Change this back to your actual Laptop IP so the final test works!
-    // Example: http://192.168.1.15:5173/verify/${label}
-    const verifyUrl = `${import.meta.env.VITE_FRONTEND_URL}/verify/${label}` 
+    const verifyUrl = `${import.meta.env.VITE_FRONTEND_URL}/verify/${label}`;
 
     try {
-      // THE FIX: Increased width to 300 for a crisp, high-resolution image
-      // Added a margin of 1 so the camera can easily see the edges
       const qrDataUrl = await QRCode.toDataURL(verifyUrl, { 
         width: 300, 
         margin: 1,
         color: {
-          dark: '#000000',  // Black dots
-          light: '#ffffff'  // White background
+          dark: '#000000',
+          light: '#ffffff'
         }
       });
 
-      // jsPDF scales the crisp 300px image perfectly into the 30x30 layout
       doc.addImage(qrDataUrl, "PNG", currentX, currentY, 30, 30);
       
-      // Add Label Text below QR
+      // --- THE CENTERING FIX ---
       doc.setFontSize(10);
-      doc.text(label, currentX + 8, currentY + 35);
+      // 1. Move X to the exact middle of the QR code (currentX + 15)
+      // 2. Tell jsPDF to align the text by its center
+      doc.text(label, currentX + 15, currentY + 35, { align: "center" });
 
       // Grid Logic: 4 columns per row
       currentX += 45; 
       if ((i + 1) % 4 === 0) {
-        currentX = 10; // Reset X to left margin
-        currentY += 45; // Move Y down one row
+        currentX = 10;
+        currentY += 45;
       }
 
       // Add a new page if we hit the limit
@@ -50,6 +47,5 @@ export const generateLabelsPDF = async (labelNumbers, qrsPerPage = 20) => {
     }
   }
 
-  // Trigger browser download
   doc.save("seed-bag-labels.pdf");
 };

@@ -6,23 +6,36 @@ const BatchHistory = () => {
   const [stats, setStats] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchStats = async () => {
+    try {
+      const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/admin/stats`);
+      setStats(data);
+    } catch (err) {
+      console.error("Failed to load stats:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/admin/stats`);
-        setStats(data);
-      } catch (err) {
-        console.error("Failed to load stats:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStats();
   }, []);
 
+  // NEW: Delete Function
+  const handleDelete = async (productId) => {
+    if (!window.confirm("Are you sure you want to delete this batch and all its QR codes?")) return;
+    
+    try {
+      await axios.delete(`${import.meta.env.VITE_BACKEND_URL}/api/admin/product/${productId}`);
+      alert("Batch deleted successfully");
+      fetchStats(); // Refresh the table automatically
+    } catch (error) {
+      alert("Failed to delete batch");
+    }
+  };
+
   const downloadExcel = () => {
     const rows = [];
-    // Flatten the data for the Excel sheet
     stats.forEach(day => {
       day.products.forEach(p => {
         rows.push({
@@ -33,12 +46,9 @@ const BatchHistory = () => {
         });
       });
     });
-
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Production_Logs");
-    
-    // Triggers the download
     XLSX.writeFile(workbook, `Excel_Agri_Production_${new Date().toLocaleDateString()}.xlsx`);
   };
 
@@ -46,9 +56,7 @@ const BatchHistory = () => {
     <div style={styles.container}>
       <div style={styles.headerRow}>
         <h2 style={{ color: '#064e3b', margin: 0 }}>📊 Daily Production Monitor</h2>
-        <button onClick={downloadExcel} style={styles.downloadBtn}>
-          📥 Download Excel Sheet
-        </button>
+        <button onClick={downloadExcel} style={styles.downloadBtn}>📥 Download Excel Sheet</button>
       </div>
       <hr style={{ border: '0.5px solid #e2e8f0', marginBottom: '20px' }} />
 
@@ -67,6 +75,7 @@ const BatchHistory = () => {
                   <th style={styles.th}>Crop Name</th>
                   <th style={styles.th}>Variety</th>
                   <th style={styles.th}>Quantity (Bags)</th>
+                  <th style={styles.th}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -75,6 +84,11 @@ const BatchHistory = () => {
                     <td style={styles.td}><strong>{p.name || "Unknown"}</strong></td>
                     <td style={styles.td}>{p.variety || "Unknown"}</td>
                     <td style={styles.td}><strong>{p.qty || 0}</strong></td>
+                    <td style={styles.td}>
+                      <button onClick={() => handleDelete(p.id)} style={styles.deleteBtn}>
+                        🗑️ Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -97,7 +111,8 @@ const styles = {
   tableHead: { backgroundColor: '#e2e8f0', color: '#334155' },
   th: { padding: '10px', fontSize: '14px', borderBottom: '2px solid #cbd5e1' },
   tableRow: { borderBottom: '1px solid #e2e8f0' },
-  td: { padding: '10px', fontSize: '14px', color: '#0f172a' }
+  td: { padding: '10px', fontSize: '14px', color: '#0f172a' },
+  deleteBtn: { backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }
 };
 
 export default BatchHistory;
