@@ -2,6 +2,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { generateLabelsPDF } from '../utils/pdfGenerator';
+import BatchHistory from '../components/BatchHistory';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -115,6 +116,7 @@ export default function AdminDashboard() {
           </div>
         </form>
       </div>
+      <BatchHistory />
     </div>
   );
 }
