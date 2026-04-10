@@ -41,7 +41,7 @@ export default function AdminDashboard() {
       const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/admin/generate`, data);
       await generateLabelsPDF(response.data.labelNumbers);
       alert("Batch created successfully!");
-      // This ensures the BatchHistory component below refreshes with new data
+      
       window.location.reload(); 
     } catch (err) { 
       alert("Error generating batch. Check file size (max 4MB)."); 
