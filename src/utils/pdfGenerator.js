@@ -2,61 +2,51 @@ import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 
 export const generateLabelsPDF = async (labelNumbers) => {
-  const doc = new jsPDF(); 
+  const doc = new jsPDF({
+    orientation: "landscape", 
+    unit: "mm",
+    format: [100, 25] 
+  });
 
-  // --- STICKER CALIBRATION SETTINGS ---
-  const startX = 10;         // Left margin of the page (mm)
-  const startY = 10;         // Top margin of the page (mm)
-  const labelWidth = 25;     // Width of one sticker (25mm = 1 inch)
-  const labelHeight = 25;    // Height of one sticker
-  const gapX = 2;            // Horizontal gap between stickers (mm)
-  const gapY = 2;            // Vertical gap between rows (mm)
-  const columns = 4;         // 4 stickers across the roll
-  const rowsPerPage = 10;    // How many rows fit on one printed page
-
-  // --- INTERNAL QR SIZING ---
-  const qrSize = 19;         // QR code size (leaves 6mm for text at the bottom)
-  const qrMarginX = (labelWidth - qrSize) / 2; // Centers the QR horizontally in the sticker
-  const qrMarginY = 1;       // Pushes the QR 1mm down from the top edge
+  const labelSize = 25;      
+  const qrsPerPage = 4;      
+  
+  // --- ADJUSTED FOR SAFE MARGINS ---
+  const qrSize = 17; // Reduced from 19 to give more vertical breathing room
+  const qrOffset = (labelSize - qrSize) / 2; // Perfectly centers the QR (4mm padding on sides)
 
   for (let i = 0; i < labelNumbers.length; i++) {
     const label = labelNumbers[i];
     const verifyUrl = `${import.meta.env.VITE_FRONTEND_URL}/verify/${label}`;
 
-    // 1. Calculate Exact Grid Position
-    const col = i % columns;
-    const row = Math.floor(i / columns);
-    const pageRow = row % rowsPerPage;
-
-    // 2. Add New Page if needed
-    if (i > 0 && col === 0 && pageRow === 0) {
-      doc.addPage();
+    if (i > 0 && i % qrsPerPage === 0) {
+      doc.addPage([100, 25], "landscape");
     }
 
-    // 3. Calculate X and Y for this specific sticker
-    const currentX = startX + col * (labelWidth + gapX);
-    const currentY = startY + pageRow * (labelHeight + gapY);
+    const col = i % qrsPerPage;
+    const currentX = col * labelSize;
+    const currentY = 0;
 
     try {
-      // 4. Generate Ultra-High Quality QR Code (400px)
       const qrDataUrl = await QRCode.toDataURL(verifyUrl, { 
-        width: 400,  // Increased from 300 for crisp scanning
+        width: 400,  
         margin: 1,
         color: { dark: '#000000', light: '#ffffff' }
       });
 
-      // 5. Draw the QR Code
-      doc.addImage(qrDataUrl, "PNG", currentX + qrMarginX, currentY + qrMarginY, qrSize, qrSize);
+      // 1. Draw QR: Start 1.5mm from the top edge
+      doc.addImage(qrDataUrl, "PNG", currentX + qrOffset, currentY + 1.5, qrSize, qrSize);
       
-      // 6. Draw the Label Text
-      doc.setFontSize(7); // Size 7 fits a 12-char ID perfectly inside 25mm
-      // Calculate exact center of the 25mm box (currentX + 12.5)
-      doc.text(label, currentX + (labelWidth / 2), currentY + qrSize + 4, { align: "center" });
+      // 2. Draw Text: Slightly smaller font, moved up closer to the QR code
+      doc.setFontSize(6.5);
+      
+      // The text baseline is now at 22.5mm (Leaving a safe 2.5mm unprinted gap at the bottom)
+      doc.text(label, currentX + (labelSize / 2), currentY + 22.5, { align: "center" });
 
     } catch (err) {
-      console.error("Error generating QR for label:", label, err);
+      console.error("Error generating QR:", label, err);
     }
   }
 
-  doc.save("Excel_Seeds_Labels.pdf");
+  doc.save("Thermal_100x25_Labels.pdf");
 };

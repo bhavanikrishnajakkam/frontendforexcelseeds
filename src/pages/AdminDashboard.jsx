@@ -107,9 +107,22 @@ export default function AdminDashboard() {
                 <input style={styles.fileInput} type="file" accept="application/pdf" onChange={(e) => setLeafletFile(e.target.files[0])} required />
               </div>
             </div>
+            
+            {/* UPDATED BUTTON WITH LOADING SPINNER */}
             <button type="submit" disabled={loading} style={{ ...styles.button, opacity: loading ? 0.8 : 1 }}>
-              {loading ? "Processing Batch..." : "🚀 Generate Labels & Secure Data"}
+              {loading ? (
+                <span style={styles.spinnerContainer}>
+                  <style>
+                    {`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}
+                  </style>
+                  <div style={styles.spinner}></div>
+                  Processing Batch...
+                </span>
+              ) : (
+                " Generate Labels & Secure Data"
+              )}
             </button>
+
           </div>
         </form>
       </div>
@@ -119,7 +132,18 @@ export default function AdminDashboard() {
 }
 
 const styles = {
-  pageWrapper: { backgroundColor: '#f8fafc', minHeight: '100vh', paddingBottom: '40px' },
+  pageWrapper: { 
+  backgroundColor: '#f8fafc', 
+  minHeight: '100vh', 
+  paddingBottom: '40px',
+  // 1. The standard major-website font stack
+  fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif',
+  // 2. Makes the default text slightly thicker and bolder
+  fontWeight: '500', 
+  // 3. Improves text crispness on modern monitors
+  WebkitFontSmoothing: 'antialiased',
+  MozOsxFontSmoothing: 'grayscale'
+},
   navbar: { backgroundColor: '#065f46', color: '#fff', padding: '12px 0' },
   navContent: { maxWidth: '1000px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', padding: '0 20px', alignItems: 'center' },
   navBrand: { fontWeight: '700', fontSize: '18px' },
@@ -132,7 +156,23 @@ const styles = {
   sectionTitle: { fontSize: '13px', color: '#065f46', fontWeight: '700', borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '15px', textTransform: 'uppercase' },
   input: { width: '100%', padding: '10px', marginBottom: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' },
   label: { fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '4px', display: 'block' },
-  button: { width: '100%', padding: '16px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', fontWeight: '700' },
+  button: { width: '100%', padding: '16px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', fontWeight: '700', transition: 'opacity 0.3s' },
   finalSection: { marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #f1f5f9' },
-  fileInput: { fontSize: '13px' }
+  fileInput: { fontSize: '13px' },
+  
+  // NEW SPINNER STYLES
+  spinnerContainer: { 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: '10px' 
+  },
+  spinner: { 
+    width: '20px', 
+    height: '20px', 
+    border: '3px solid rgba(255,255,255,0.3)', 
+    borderTop: '3px solid #fff', 
+    borderRadius: '50%', 
+    animation: 'spin 1s linear infinite' 
+  }
 };

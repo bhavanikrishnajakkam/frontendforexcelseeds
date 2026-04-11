@@ -55,7 +55,7 @@ const BatchHistory = () => {
   return (
     <div style={styles.container}>
       <div style={styles.headerRow}>
-        <h2 style={{ color: '#064e3b', margin: 0 }}>📊 Daily Production Monitor</h2>
+        <h2 style={{ color: '#064e3b', margin: 0 }}> Daily Production Monitor</h2>
         <button onClick={downloadExcel} style={styles.downloadBtn}>📥 Download Excel Sheet</button>
       </div>
       <hr style={{ border: '0.5px solid #e2e8f0', marginBottom: '20px' }} />
@@ -86,7 +86,7 @@ const BatchHistory = () => {
                     <td style={styles.td}><strong>{p.qty || 0}</strong></td>
                     <td style={styles.td}>
                       <button onClick={() => handleDelete(p.id)} style={styles.deleteBtn}>
-                        🗑️ Delete
+                         Delete
                       </button>
                     </td>
                   </tr>
