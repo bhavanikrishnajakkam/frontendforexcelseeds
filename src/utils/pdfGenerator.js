@@ -8,12 +8,16 @@ export const generateLabelsPDF = async (labelNumbers) => {
     format: [100, 25] 
   });
 
-  const labelSize = 25;      
   const qrsPerPage = 4;      
   
-  // --- ADJUSTED FOR SAFE MARGINS ---
-  const qrSize = 17; // Reduced from 19 to give more vertical breathing room
-  const qrOffset = (labelSize - qrSize) / 2; // Perfectly centers the QR (4mm padding on sides)
+  // --- NEW: ADJUSTED FOR PHYSICAL GAPS ON THE ROLL ---
+  // If the print is slightly unaligned, tweak these numbers by 0.5 or 1mm!
+  const startX = 2;           // Left margin before the first sticker starts (mm)
+  const stickerWidth = 22.5;  // Width of the actual peel-off sticker (mm)
+  const gapX = 1.5;           // Physical gap between the stickers (mm)
+  
+  const qrSize = 16; // Reduced slightly to fit the narrower 22.5mm sticker
+  const qrOffset = (stickerWidth - qrSize) / 2; // Centers the QR horizontally
 
   for (let i = 0; i < labelNumbers.length; i++) {
     const label = labelNumbers[i];
@@ -24,7 +28,9 @@ export const generateLabelsPDF = async (labelNumbers) => {
     }
 
     const col = i % qrsPerPage;
-    const currentX = col * labelSize;
+    
+    // Calculates X position skipping over the physical gaps
+    const currentX = startX + (col * (stickerWidth + gapX));
     const currentY = 0;
 
     try {
@@ -37,11 +43,11 @@ export const generateLabelsPDF = async (labelNumbers) => {
       // 1. Draw QR: Start 1.5mm from the top edge
       doc.addImage(qrDataUrl, "PNG", currentX + qrOffset, currentY + 1.5, qrSize, qrSize);
       
-      // 2. Draw Text: Slightly smaller font, moved up closer to the QR code
+      // 2. Draw Text
       doc.setFontSize(6.5);
       
-      // The text baseline is now at 22.5mm (Leaving a safe 2.5mm unprinted gap at the bottom)
-      doc.text(label, currentX + (labelSize / 2), currentY + 22.5, { align: "center" });
+      // Center text under the specific sticker width
+      doc.text(label, currentX + (stickerWidth / 2), currentY + 22.5, { align: "center" });
 
     } catch (err) {
       console.error("Error generating QR:", label, err);
