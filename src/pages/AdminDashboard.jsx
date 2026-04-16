@@ -10,9 +10,9 @@ export default function AdminDashboard() {
   const [formData, setFormData] = useState({
     productName: '', variety: '', packedLotNumber: '',
     dateOfTesting: '', packagingDate: '', dateOfExpiry: '',
-    mrp: '', unitSalePrice: '', netQty: '',
+    mrp: '', totalWeight: '', netQty: '', unitSalePrice: '', 
     packedAt: 'Excel Agri Research Private Limited \nC/o Vittal Seeds Processing Plant,\nSy No. 1608/E and Door No. 4-186/4,\nVillage Peddapapaiah Pally,\nMandal Huzurabad,\nDistrict Karimnagar - 505498,\nTelangana.', 
-    plantAddress: 'Excel Agri Research Pvt. Ltd.\nC/o. Nandeeshwara Seeds,\nH.No: 4-191, Peddapapaipally,\nHUZURABAD.', 
+    plantAddress: 'Excel Agri Research Private Limited \nC/o Vittal Seeds Processing Plant,\nSy No. 1608/E and Door No. 4-186/4,\nVillage Peddapapaiah Pally,\nMandal Huzurabad,\nDistrict Karimnagar - 505498,\nTelangana.', 
     producedBy: 'EXCEL AGRI RESEARCH PVT.LTD',
     quantity: 10
   });
@@ -20,23 +20,39 @@ export default function AdminDashboard() {
   const [leafletFile, setLeafletFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // --- AUTO-CALCULATE UNIT PRICE (Editable) ---
+  // --- AUTO-CALCULATE UNIT PRICE & BAG QUANTITY ---
   useEffect(() => {
     const mrpVal = parseFloat(formData.mrp.replace(/[^0-9.]/g, ''));
-    const qtyVal = parseFloat(formData.netQty.replace(/[^0-9.]/g, ''));
+    const netQtyVal = parseFloat(formData.netQty.replace(/[^0-9.]/g, ''));
+    const totalWeightVal = parseFloat(formData.totalWeight.replace(/[^0-9.]/g, ''));
 
-    if (!isNaN(mrpVal) && !isNaN(qtyVal) && qtyVal > 0) {
-      const calculatedPrice = (mrpVal / qtyVal).toFixed(2);
+    let updates = {};
+
+    // 1. Calculate Unit Sale Price
+    if (!isNaN(mrpVal) && !isNaN(netQtyVal) && netQtyVal > 0) {
+      const calculatedPrice = (mrpVal / netQtyVal).toFixed(2);
       const newUnitPriceString = `Rs ${calculatedPrice} / Kg`;
       
       if (formData.unitSalePrice !== newUnitPriceString) {
-        setFormData(prev => ({ 
-          ...prev, 
-          unitSalePrice: newUnitPriceString
-        }));
+        updates.unitSalePrice = newUnitPriceString;
       }
     }
-  }, [formData.mrp, formData.netQty]);
+
+    // 2. Calculate Bags to Generate (Quantity)
+    if (!isNaN(totalWeightVal) && !isNaN(netQtyVal) && netQtyVal > 0) {
+      // Using Math.ceil ensures no weight is left unpacked
+      const calculatedBags = Math.ceil(totalWeightVal / netQtyVal).toString();
+      
+      if (String(formData.quantity) !== calculatedBags) {
+        updates.quantity = calculatedBags;
+      }
+    }
+
+    // Only update state if calculations triggered a change
+    if (Object.keys(updates).length > 0) {
+      setFormData(prev => ({ ...prev, ...updates }));
+    }
+  }, [formData.mrp, formData.netQty, formData.totalWeight]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -151,11 +167,6 @@ export default function AdminDashboard() {
           color: rgba(255,255,255,0.65);
           letter-spacing: 1.5px;
           text-transform: uppercase;
-        }
-        .dash-nav-divider {
-          width: 1px;
-          background: rgba(255,255,255,0.2);
-          margin: 14px 16px;
         }
         .dash-logout-btn {
           background: rgba(255,255,255,0.08);
@@ -513,6 +524,10 @@ export default function AdminDashboard() {
                 <div className="dash-input-wrap">
                   <label className="dash-label">MRP</label>
                   <input className="dash-input" name="mrp" placeholder="e.g. Rs 1620.00" onChange={handleChange} required />
+                </div>
+                <div className="dash-input-wrap">
+                  <label className="dash-label">Total Weight Produced</label>
+                  <input className="dash-input" name="totalWeight" placeholder="e.g. 1000 Kg" value={formData.totalWeight} onChange={handleChange} />
                 </div>
                 <div className="dash-input-wrap">
                   <label className="dash-label">Net Quantity</label>
