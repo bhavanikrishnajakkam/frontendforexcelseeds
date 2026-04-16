@@ -494,7 +494,11 @@ export default function AdminDashboard() {
                   <label className="dash-label">Packed Lot Number</label>
                   <input className="dash-input" name="packedLotNumber" placeholder="Enter lot number" onChange={handleChange} required />
                 </div>
-
+                
+                <div className="dash-input-wrap">
+                  <label className="dash-label">Packed Lot Quantity</label>
+                  <input className="dash-input" name="totalWeight" placeholder="e.g. 1000 Kg" value={formData.totalWeight} onChange={handleChange} />
+                </div>
                 <div className="dash-section-header" style={{ marginTop: '24px' }}>
                   <div className="dash-section-dot"></div>
                   <span className="dash-section-title">Batch Dates</span>
@@ -525,10 +529,7 @@ export default function AdminDashboard() {
                   <label className="dash-label">MRP</label>
                   <input className="dash-input" name="mrp" placeholder="e.g. Rs 1620.00" onChange={handleChange} required />
                 </div>
-                <div className="dash-input-wrap">
-                  <label className="dash-label">Total Weight Produced</label>
-                  <input className="dash-input" name="totalWeight" placeholder="e.g. 1000 Kg" value={formData.totalWeight} onChange={handleChange} />
-                </div>
+                
                 <div className="dash-input-wrap">
                   <label className="dash-label">Net Quantity</label>
                   <input className="dash-input" name="netQty" placeholder="e.g. 12 Kg" onChange={handleChange} required />
