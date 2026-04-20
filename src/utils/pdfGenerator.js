@@ -10,13 +10,12 @@ export const generateLabelsPDF = async (labelNumbers) => {
 
   const qrsPerPage = 4;      
   
-  // --- NEW: ADJUSTED FOR PHYSICAL GAPS ON THE ROLL ---
-  // If the print is slightly unaligned, tweak these numbers by 0.5 or 1mm!
-  const startX = 2;           // Left margin before the first sticker starts (mm)
-  const stickerWidth = 22.5;  // Width of the actual peel-off sticker (mm)
-  const gapX = 1.5;           // Physical gap between the stickers (mm)
+  const startX = 2;          // Left margin before the first sticker starts (mm)
+  const stickerWidth = 22.5; // Width of the actual peel-off sticker (mm)
+  const gapX = 1.5;          // Physical gap between the stickers (mm)
   
-  const qrSize = 16; // Reduced slightly to fit the narrower 22.5mm sticker
+  // 1. REDUCED QR SIZE
+  const qrSize = 14; // Down from 16
   const qrOffset = (stickerWidth - qrSize) / 2; // Centers the QR horizontally
 
   for (let i = 0; i < labelNumbers.length; i++) {
@@ -40,14 +39,14 @@ export const generateLabelsPDF = async (labelNumbers) => {
         color: { dark: '#000000', light: '#ffffff' }
       });
 
-      // 1. Draw QR: Start 1.5mm from the top edge
-      doc.addImage(qrDataUrl, "PNG", currentX + qrOffset, currentY + 1.5, qrSize, qrSize);
+      // 2. LOWERED QR CODE (Changed Y offset from 1.5 to 3.0)
+      doc.addImage(qrDataUrl, "PNG", currentX + qrOffset, currentY + 3.0, qrSize, qrSize);
       
-      // 2. Draw Text
-      doc.setFontSize(6.5);
+      // 3. REDUCED TEXT SIZE (Down from 6.5)
+      doc.setFontSize(5.5);
       
-      // Center text under the specific sticker width
-      doc.text(label, currentX + (stickerWidth / 2), currentY + 22.5, { align: "center" });
+      // Kept text near the bottom border, beautifully aligned
+      doc.text(label, currentX + (stickerWidth / 2), currentY + 22.0, { align: "center" });
 
     } catch (err) {
       console.error("Error generating QR:", label, err);
