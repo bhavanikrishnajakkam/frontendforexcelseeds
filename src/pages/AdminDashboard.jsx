@@ -5,6 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { generateLabelsPDF } from '../utils/pdfGenerator';
 import BatchHistory from '../components/BatchHistory';
 
+const addressOption1 = `Excel Agri Research Private Limited \nC/o Vittal Seeds Processing Plant,\nSy No. 1608/E and Door No. 4-186/4,\nVillage Peddapapaiah Pally,\nMandal Huzurabad,\nDistrict Karimnagar - 505498,\nTelangana.`;
+const addressOption2 = `Excel Agri Research Private Limited\nC/o Surya Agri Tech\nSurvey No:53 and Plot No: 25,\nAgro Processing Park,Bandamailaram(Village)\nMulugu(Mandal),Siddipet(Dist)\nTelangana,Pin-502336`;
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -12,7 +15,7 @@ export default function AdminDashboard() {
     dateOfTesting: '', packagingDate: '', dateOfExpiry: '',
     mrp: '', totalWeight: '', netQty: '', unitSalePrice: '', 
     packedAt: 'Excel Agri Research Private Limited \nC/o Vittal Seeds Processing Plant,\nSy No. 1608/E and Door No. 4-186/4,\nVillage Peddapapaiah Pally,\nMandal Huzurabad,\nDistrict Karimnagar - 505498,\nTelangana.', 
-    plantAddress: 'Excel Agri Research Private Limited \nC/o Vittal Seeds Processing Plant,\nSy No. 1608/E and Door No. 4-186/4,\nVillage Peddapapaiah Pally,\nMandal Huzurabad,\nDistrict Karimnagar - 505498,\nTelangana.', 
+    plantAddress: addressOption1, 
     producedBy: 'EXCEL AGRI RESEARCH PVT.LTD',
     quantity: 10
   });
@@ -548,10 +551,38 @@ export default function AdminDashboard() {
                   <label className="dash-label">Packed At</label>
                   <textarea className="dash-textarea" style={{ height: '120px' }} name="packedAt" value={formData.packedAt} onChange={handleChange} required />
                 </div>
+                
+                {/* ── DROPDOWN IMPLEMENTATION HERE ── */}
+                {/* ── DROPDOWN & PREVIEW IMPLEMENTATION ── */}
                 <div className="dash-input-wrap">
-                  <label className="dash-label">Plant Address</label>
-                  <textarea className="dash-textarea" style={{ height: '75px' }} name="plantAddress" value={formData.plantAddress} onChange={handleChange} required />
+                  <label className="dash-label">Select Plant Location</label>
+                  <select 
+                    className="dash-input" 
+                    name="plantAddress" 
+                    value={formData.plantAddress} 
+                    onChange={handleChange} 
+                    required
+                    style={{ cursor: 'pointer', marginBottom: '12px' }}
+                  >
+                    <option value={addressOption1}>Vittal Seeds Processing Plant (Huzurabad)</option>
+                    <option value={addressOption2}>Surya Agri Tech (Siddipet)</option>
+                  </select>
+
+                  <label className="dash-label">Full Address Preview</label>
+                  <textarea 
+                    className="dash-textarea" 
+                    style={{ 
+                      height: '110px', 
+                      backgroundColor: '#f8fafc', 
+                      color: '#475569',
+                      cursor: 'not-allowed',
+                      borderColor: '#e2e8f0'
+                    }} 
+                    value={formData.plantAddress} 
+                    readOnly 
+                  />
                 </div>
+
                 <div className="dash-input-wrap">
                   <label className="dash-label">Produced By</label>
                   <input className="dash-input" name="producedBy" value={formData.producedBy} onChange={handleChange} required />
