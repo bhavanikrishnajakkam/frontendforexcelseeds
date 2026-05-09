@@ -15,7 +15,8 @@ export default function AdminDashboard() {
     dateOfTesting: '', packagingDate: '', dateOfExpiry: '',
     mrp: '', totalWeight: '', netQty: '', unitSalePrice: '', 
     packedAt: 'Excel Agri Research Private Limited \nC/o Vittal Seeds Processing Plant,\nSy No. 1608/E and Door No. 4-186/4,\nVillage Peddapapaiah Pally,\nMandal Huzurabad,\nDistrict Karimnagar - 505498,\nTelangana.', 
-    plantAddress: addressOption1, 
+    plantAddress: addressOption1,
+    packedAt: addressOption1, 
     producedBy: 'EXCEL AGRI RESEARCH PVT.LTD',
     quantity: 10
   });
@@ -56,7 +57,7 @@ export default function AdminDashboard() {
       setFormData(prev => ({ ...prev, ...updates }));
     }
   }, [formData.mrp, formData.netQty, formData.totalWeight]);
-
+ 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -542,20 +543,51 @@ export default function AdminDashboard() {
                   <input className="dash-input" name="unitSalePrice" placeholder="Auto-calculated" value={formData.unitSalePrice} onChange={handleChange} required />
                 </div>
 
+                
+
+                
+                
+                {/* ── DROPDOWN IMPLEMENTATION HERE ── */}
+                {/* ── DROPDOWN & PREVIEW IMPLEMENTATION ── */}
+                
                 <div className="dash-section-header" style={{ marginTop: '24px' }}>
                   <div className="dash-section-dot"></div>
                   <span className="dash-section-title">Facility & Logistics</span>
                 </div>
 
+                {/* ── PACKED AT DROPDOWN & PREVIEW ── */}
                 <div className="dash-input-wrap">
                   <label className="dash-label">Packed At</label>
-                  <textarea className="dash-textarea" style={{ height: '120px' }} name="packedAt" value={formData.packedAt} onChange={handleChange} required />
+                  <select 
+                    className="dash-input" 
+                    name="packedAt" 
+                    value={formData.packedAt} 
+                    onChange={handleChange} 
+                    required
+                    style={{ cursor: 'pointer', marginBottom: '12px' }}
+                  >
+                    <option value={addressOption1}>Vittal Seeds Processing Plant (Huzurabad)</option>
+                    <option value={addressOption2}>Surya Agri Tech (Siddipet)</option>
+                  </select>
+
+                  <label className="dash-label">Packed At Preview</label>
+                  <textarea 
+                    className="dash-textarea" 
+                    style={{ 
+                      height: '110px', 
+                      backgroundColor: '#f8fafc', 
+                      color: '#475569',
+                      cursor: 'not-allowed',
+                      borderColor: '#e2e8f0'
+                    }} 
+                    value={formData.packedAt} 
+                    readOnly 
+                  />
                 </div>
-                
-                {/* ── DROPDOWN IMPLEMENTATION HERE ── */}
-                {/* ── DROPDOWN & PREVIEW IMPLEMENTATION ── */}
+
+                {/* ── PLANT ADDRESS DROPDOWN & PREVIEW ── */}
                 <div className="dash-input-wrap">
-                  <label className="dash-label">Select Plant Location</label>
+                  <label className="dash-label">Plant Address</label>
                   <select 
                     className="dash-input" 
                     name="plantAddress" 
@@ -583,6 +615,8 @@ export default function AdminDashboard() {
                   />
                 </div>
 
+                
+                
                 <div className="dash-input-wrap">
                   <label className="dash-label">Produced By</label>
                   <input className="dash-input" name="producedBy" value={formData.producedBy} onChange={handleChange} required />
