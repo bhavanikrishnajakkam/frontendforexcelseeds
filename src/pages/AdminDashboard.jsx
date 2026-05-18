@@ -14,14 +14,12 @@ export default function AdminDashboard() {
     productName: '', variety: '', packedLotNumber: '',
     dateOfTesting: '', packagingDate: '', dateOfExpiry: '',
     mrp: '', totalWeight: '', netQty: '', unitSalePrice: '', 
-    packedAt: 'Excel Agri Research Private Limited \nC/o Vittal Seeds Processing Plant,\nSy No. 1608/E and Door No. 4-186/4,\nVillage Peddapapaiah Pally,\nMandal Huzurabad,\nDistrict Karimnagar - 505498,\nTelangana.', 
-    plantAddress: addressOption1,
     packedAt: addressOption1, 
+    plantAddress: addressOption1,
     producedBy: 'EXCEL AGRI RESEARCH PVT.LTD',
     quantity: 10
   });
 
-  const [leafletFile, setLeafletFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // --- AUTO-CALCULATE UNIT PRICE & BAG QUANTITY ---
@@ -57,7 +55,7 @@ export default function AdminDashboard() {
       setFormData(prev => ({ ...prev, ...updates }));
     }
   }, [formData.mrp, formData.netQty, formData.totalWeight]);
- 
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -69,12 +67,14 @@ export default function AdminDashboard() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!leafletFile) return alert("Please upload a PDF leaflet");
     setLoading(true);
 
     const data = new FormData();
     Object.keys(formData).forEach(key => data.append(key, formData[key]));
-    data.append('leaflet', leafletFile);
+    
+    // --- HARDCODED LEAFLET VALUE ---
+    // Change this string to whatever static URL or value your database expects
+    data.append('leaflet', 'https://res.cloudinary.com/dunyiktby/raw/upload/v1779108197/seed_leaflets/j9jta7ttlc7ywupvvuzj.pdf');
 
     try {
       const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/admin/generate`, data);
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
       alert("Batch created successfully!");
       window.location.reload(); 
     } catch (err) { 
-      alert("Error generating batch. Check file size (max 4MB)."); 
+      alert("Error generating batch. Check file size limitations or backend requirements."); 
     } finally { 
       setLoading(false); 
     }
@@ -342,50 +342,14 @@ export default function AdminDashboard() {
           background: linear-gradient(180deg, #f7f4ee 0%, var(--warm-white) 100%);
           padding: 28px 32px 32px;
         }
+        /* Changed to a single column grid to stretch the Bags input */
         .dash-final-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr;
           gap: 24px;
           margin-bottom: 24px;
         }
-        .dash-file-input-label {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 10px 14px;
-          border: 1.5px dashed #bfb49e;
-          border-radius: 8px;
-          background: #fff;
-          cursor: pointer;
-          transition: border-color 0.2s, background 0.2s;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 13px;
-          color: var(--text-mid);
-        }
-        .dash-file-input-label:hover {
-          border-color: var(--green-600);
-          background: rgba(4,120,87,0.03);
-        }
-        .dash-file-input {
-          font-family: 'DM Sans', sans-serif;
-          font-size: 13px;
-          color: var(--text-mid);
-          width: 100%;
-          cursor: pointer;
-        }
-        .dash-file-input::-webkit-file-upload-button {
-          background: var(--green-700);
-          color: white;
-          border: none;
-          padding: 6px 14px;
-          border-radius: 5px;
-          cursor: pointer;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 12px;
-          margin-right: 10px;
-          font-weight: 500;
-        }
-
+        
         /* ── SUBMIT BUTTON ── */
         .dash-submit-btn {
           width: 100%;
@@ -445,7 +409,6 @@ export default function AdminDashboard() {
         @media (max-width: 700px) {
           .dash-grid { grid-template-columns: 1fr; }
           .dash-col:first-child { border-right: none; border-bottom: 1px solid var(--border); }
-          .dash-final-grid { grid-template-columns: 1fr; }
           .dash-hero-title { font-size: 26px; }
         }
       `}</style>
@@ -542,13 +505,6 @@ export default function AdminDashboard() {
                   <label className="dash-label">Unit Sale Price</label>
                   <input className="dash-input" name="unitSalePrice" placeholder="Auto-calculated" value={formData.unitSalePrice} onChange={handleChange} required />
                 </div>
-
-                
-
-                
-                
-                {/* ── DROPDOWN IMPLEMENTATION HERE ── */}
-                {/* ── DROPDOWN & PREVIEW IMPLEMENTATION ── */}
                 
                 <div className="dash-section-header" style={{ marginTop: '24px' }}>
                   <div className="dash-section-dot"></div>
@@ -614,8 +570,6 @@ export default function AdminDashboard() {
                     readOnly 
                   />
                 </div>
-
-                
                 
                 <div className="dash-input-wrap">
                   <label className="dash-label">Produced By</label>
@@ -630,16 +584,6 @@ export default function AdminDashboard() {
                 <div>
                   <label className="dash-label" style={{ marginBottom: '8px' }}>Bags to Generate</label>
                   <input className="dash-input" type="number" name="quantity" value={formData.quantity} onChange={handleChange} required />
-                </div>
-                <div>
-                  <label className="dash-label" style={{ marginBottom: '8px' }}>Leaflet PDF</label>
-                  <input
-                    className="dash-file-input"
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(e) => setLeafletFile(e.target.files[0])}
-                    required
-                  />
                 </div>
               </div>
 
