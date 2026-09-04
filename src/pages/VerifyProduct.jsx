@@ -349,7 +349,7 @@ export default function VerifyProduct() {
           </div>
         </div>
 
-        <p className="vp-footer">© 2026 Ganga Kaveri Seeds Pvt. Ltd.</p>
+        <p className="vp-footer"></p>
       </div>
     </>
   );
