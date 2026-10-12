@@ -56,26 +56,22 @@ export const generateLabelsPDF = async (labelNumbers, onProgress) => {
     }
   }
 
-  // --- THE FIX: MANUAL BLOB DOWNLOAD ---
-  // Instead of doc.save(), we force the browser to handle the massive file directly.
+  // --- MANUAL BLOB DOWNLOAD ---
   try {
     const pdfBlob = doc.output('blob');
     const blobUrl = URL.createObjectURL(pdfBlob);
     
-    // Create an invisible anchor tag
     const link = document.createElement('a');
     link.href = blobUrl;
     link.download = "Thermal_100x25_Labels.pdf";
     
-    // Append to body, click it, and instantly remove it
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    // Clean up the browser memory immediately after download starts
     URL.revokeObjectURL(blobUrl);
   } catch (error) {
     console.error("Failed to force download:", error);
-    alert("The PDF was generated, but your browser blocked the massive download. Try generating 1,000 labels at a time.");
+    alert("The PDF was generated, but your browser blocked the massive download.");
   }
 };
