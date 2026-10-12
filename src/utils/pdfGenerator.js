@@ -1,7 +1,8 @@
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 
-export const generateLabelsPDF = async (labelNumbers) => {
+// 1. ADDED the 'onProgress' parameter to accept the dashboard's tracking function
+export const generateLabelsPDF = async (labelNumbers, onProgress) => {
   const doc = new jsPDF({
     orientation: "landscape", 
     unit: "mm",
@@ -40,8 +41,14 @@ export const generateLabelsPDF = async (labelNumbers) => {
       doc.setFontSize(5.5);
       doc.text(label, currentX + (stickerWidth / 2), currentY + 22.0, { align: "center" });
 
-      if (i % 50 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 1));
+      // 2. TRIGGER THE CALLBACK: Report the current count back to the dashboard
+      if (onProgress) {
+        onProgress(i + 1);
+      }
+
+      // 3. YIELD FREQUENTLY: Pause for 0ms every 25 labels to let React paint the progress bar
+      if (i % 25 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
 
     } catch (err) {
