@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { generateLabelsPDF } from '../utils/pdfGenerator';
@@ -7,6 +6,7 @@ import BatchHistory from '../components/BatchHistory';
 
 const addressOption1 = `Excel Agri Research Private Limited \nC/o Vittal Seeds Processing Plant,\nSy No. 1608/E and Door No. 4-186/4,\nVillage Peddapapaiah Pally,\nMandal Huzurabad,\nDistrict Karimnagar - 505498,\nTelangana.`;
 const addressOption2 = `Excel Agri Research Private Limited\nC/o Surya Agri Tech\nSurvey No:53 and Plot No: 25,\nAgro Processing Park,Bandamailaram(Village)\nMulugu(Mandal),Siddipet(Dist)\nTelangana,Pin-502336`;
+const addressOption3 = `Excel Agri Research Private Limited\nC/o A.N ENGINEERING\nSurvey No: 254 A, 254 AA, Narsapur Village, Mulugu Mandal,\nSiddipet District, Telangana - 506 343.`;
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -21,6 +21,17 @@ export default function AdminDashboard() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+
+  // ── Toast Notification State ──
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ visible: true, message, type });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, visible: false }));
+    }, 3500);
+  };
 
   // --- AUTO-CALCULATE UNIT PRICE & BAG QUANTITY ---
   useEffect(() => {
@@ -42,7 +53,6 @@ export default function AdminDashboard() {
 
     // 2. Calculate Bags to Generate (Quantity)
     if (!isNaN(totalWeightVal) && !isNaN(netQtyVal) && netQtyVal > 0) {
-      // Using Math.ceil ensures no weight is left unpacked
       const calculatedBags = Math.ceil(totalWeightVal / netQtyVal).toString();
       
       if (String(formData.quantity) !== calculatedBags) {
@@ -68,25 +78,38 @@ export default function AdminDashboard() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setProgress({ current: 0, total: 0 }); 
 
     const data = new FormData();
     Object.keys(formData).forEach(key => data.append(key, formData[key]));
     
     // --- HARDCODED LEAFLET VALUE ---
-    // Change this string to whatever static URL or value your database expects
     data.append('leaflet', 'https://res.cloudinary.com/dunyiktby/raw/upload/v1779108197/seed_leaflets/j9jta7ttlc7ywupvvuzj.pdf');
 
     try {
       const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/admin/generate`, data);
-      await generateLabelsPDF(response.data.labelNumbers);
-      alert("Batch created successfully!");
-      window.location.reload(); 
+      
+      const totalLabels = response.data.labelNumbers.length;
+      setProgress({ current: 0, total: totalLabels }); 
+
+      await generateLabelsPDF(response.data.labelNumbers, (currentCount) => {
+        setProgress({ current: currentCount, total: totalLabels });
+      });
+
+      showToast("Batch created and secured successfully!", "success");
+      
+      setTimeout(() => {
+        window.location.reload(); 
+      }, 3500);
+
     } catch (err) { 
-      alert("Error generating batch. Check file size limitations or backend requirements."); 
-    } finally { 
+      const errorMsg = err.response?.data?.error || "Error generating batch. Please check connection.";
+      showToast(errorMsg, "error");
       setLoading(false); 
     }
   };
+
+  const progressPercent = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
 
   return (
     <>
@@ -122,6 +145,24 @@ export default function AdminDashboard() {
           padding-bottom: 60px;
           -webkit-font-smoothing: antialiased;
         }
+
+        /* ── TOAST NOTIFICATION CSS ── */
+        .dash-toast {
+          position: fixed; bottom: 30px; left: 30px;
+          background: #052e1c; color: white; padding: 16px 20px; border-radius: 8px;
+          box-shadow: 0 10px 40px rgba(6,78,59,0.4); z-index: 10000; display: flex; flex-direction: column; gap: 12px;
+          transform: translateX(-150%); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+          overflow: hidden; min-width: 320px; font-family: 'DM Sans', sans-serif;
+        }
+        .dash-toast.show { transform: translateX(0); }
+        .dash-toast-message { font-weight: 500; font-size: 14px; display: flex; align-items: center; gap: 12px; }
+        .dash-toast-bar-wrap { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; width: 100%; overflow: hidden; }
+        .dash-toast-bar { height: 100%; background: #e8b931; width: 100%; transform-origin: left; }
+        .dash-toast.error .dash-toast-bar { background: #f87171; }
+        .dash-toast.error .dash-toast-icon { color: #f87171; }
+        .dash-toast.success .dash-toast-icon { color: #e8b931; }
+        @keyframes dashShrinkToastBar { from { width: 100%; } to { width: 0%; } }
+        .dash-toast.show .dash-toast-bar { animation: dashShrinkToastBar 3.5s linear forwards; }
 
         /* ── NAVBAR ── */
         .dash-navbar {
@@ -342,7 +383,6 @@ export default function AdminDashboard() {
           background: linear-gradient(180deg, #f7f4ee 0%, var(--warm-white) 100%);
           padding: 28px 32px 32px;
         }
-        /* Changed to a single column grid to stretch the Bags input */
         .dash-final-grid {
           display: grid;
           grid-template-columns: 1fr;
@@ -350,6 +390,30 @@ export default function AdminDashboard() {
           margin-bottom: 24px;
         }
         
+        /* ── PROGRESS BAR ── */
+        .dash-progress-container {
+          width: 100%;
+          background: #fff;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 16px 24px;
+          box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);
+        }
+        .dash-progress-text {
+          display: flex; justify-content: space-between; align-items: center;
+          color: var(--text-dark); font-family: 'DM Sans', sans-serif; font-size: 12px;
+          margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .dash-progress-text span:first-child { color: var(--text-light); }
+        .dash-progress-text span:last-child { color: var(--green-700); font-size: 14px; }
+        .dash-progress-track {
+          width: 100%; height: 8px; background: #e2d9c8; border-radius: 4px; overflow: hidden;
+        }
+        .dash-progress-fill {
+          height: 100%; background: linear-gradient(135deg, var(--green-800) 0%, var(--green-600) 100%);
+          border-radius: 4px; transition: width 0.3s ease;
+        }
+
         /* ── SUBMIT BUTTON ── */
         .dash-submit-btn {
           width: 100%;
@@ -386,25 +450,7 @@ export default function AdminDashboard() {
           opacity: 0.82;
           cursor: not-allowed;
         }
-        .dash-spinner-row {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-        }
-        .dash-spinner {
-          width: 18px;
-          height: 18px;
-          border: 2.5px solid rgba(255,255,255,0.3);
-          border-top: 2.5px solid #fff;
-          border-radius: 50%;
-          animation: dashSpin 0.9s linear infinite;
-          flex-shrink: 0;
-        }
-        @keyframes dashSpin {
-          to { transform: rotate(360deg); }
-        }
-
+        
         /* ── RESPONSIVE ── */
         @media (max-width: 700px) {
           .dash-grid { grid-template-columns: 1fr; }
@@ -412,6 +458,17 @@ export default function AdminDashboard() {
           .dash-hero-title { font-size: 26px; }
         }
       `}</style>
+
+      {/* ── TOAST NOTIFICATION ── */}
+      <div className={`dash-toast ${toast.type} ${toast.visible ? 'show' : ''}`}>
+        <div className="dash-toast-message">
+          {toast.type === 'success' ? '✅ ' : '❌ '}
+          {toast.message}
+        </div>
+        <div className="dash-toast-bar-wrap">
+          <div className="dash-toast-bar"></div>
+        </div>
+      </div>
 
       <div className="dash-root">
 
@@ -524,6 +581,7 @@ export default function AdminDashboard() {
                   >
                     <option value={addressOption1}>Vittal Seeds Processing Plant (Huzurabad)</option>
                     <option value={addressOption2}>Surya Agri Tech (Siddipet)</option>
+                    <option value={addressOption3}>A.N ENGINEERING (Siddipet)</option>
                   </select>
 
                   <label className="dash-label">Packed At Preview</label>
@@ -554,6 +612,7 @@ export default function AdminDashboard() {
                   >
                     <option value={addressOption1}>Vittal Seeds Processing Plant (Huzurabad)</option>
                     <option value={addressOption2}>Surya Agri Tech (Siddipet)</option>
+                    <option value={addressOption3}>A.N ENGINEERING (Siddipet)</option>
                   </select>
 
                   <label className="dash-label">Full Address Preview</label>
@@ -583,20 +642,25 @@ export default function AdminDashboard() {
               <div className="dash-final-grid">
                 <div>
                   <label className="dash-label" style={{ marginBottom: '8px' }}>Bags to Generate</label>
-                  <input className="dash-input" type="number" name="quantity" value={formData.quantity} onChange={handleChange} required />
+                  <input className="dash-input" type="number" name="quantity" value={formData.quantity} onChange={handleChange} required disabled={loading} />
                 </div>
               </div>
 
-              <button type="submit" disabled={loading} className="dash-submit-btn">
-                {loading ? (
-                  <span className="dash-spinner-row">
-                    <div className="dash-spinner"></div>
-                    Processing Batch…
-                  </span>
-                ) : (
-                  '🔒 Generate Labels & Secure Data'
-                )}
-              </button>
+              {loading ? (
+                <div className="dash-progress-container">
+                  <div className="dash-progress-text">
+                    <span>Compiling PDF Document...</span>
+                    <span>{progress.current} / {progress.total} Generated</span>
+                  </div>
+                  <div className="dash-progress-track">
+                    <div className="dash-progress-fill" style={{ width: `${progressPercent}%` }}></div>
+                  </div>
+                </div>
+              ) : (
+                <button type="submit" className="dash-submit-btn">
+                  🔒 Generate Labels & Secure Data
+                </button>
+              )}
             </div>
 
           </form>

@@ -7,6 +7,17 @@ const BatchHistory = () => {
   const [loading, setLoading] = useState(true);
   
   const [editProduct, setEditProduct] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
+  // ── Toast Notification State ──
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ visible: true, message, type });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, visible: false }));
+    }, 3500);
+  };
 
   const fetchStats = async () => {
     try {
@@ -14,6 +25,7 @@ const BatchHistory = () => {
       setStats(data);
     } catch (err) {
       console.error("Failed to load stats:", err);
+      showToast("Failed to load history data.", "error");
     } finally {
       setLoading(false);
     }
@@ -23,14 +35,20 @@ const BatchHistory = () => {
     fetchStats();
   }, []);
 
-  const handleDelete = async (productId) => {
-    if (!window.confirm("Are you sure you want to delete this batch and all its QR codes?")) return;
+  const promptDelete = (productId) => {
+    setDeleteConfirmId(productId);
+  };
+
+  const executeDelete = async () => {
+    if (!deleteConfirmId) return;
     try {
-      await axios.delete(`${import.meta.env.VITE_BACKEND_URL}/api/admin/product/${productId}`);
-      alert("Batch deleted successfully");
+      await axios.delete(`${import.meta.env.VITE_BACKEND_URL}/api/admin/product/${deleteConfirmId}`);
+      showToast("Batch deleted successfully", "success");
+      setDeleteConfirmId(null);
       fetchStats(); 
     } catch (error) {
-      alert("Failed to delete batch");
+      showToast("Failed to delete batch", "error");
+      setDeleteConfirmId(null);
     }
   };
 
@@ -44,11 +62,11 @@ const BatchHistory = () => {
         unitSalePrice: editProduct.usp,
         netQty: editProduct.netQty
       });
-      alert("Product updated successfully!");
+      showToast("Product updated successfully!", "success");
       setEditProduct(null);
       fetchStats();
     } catch (error) {
-      alert("Failed to update product");
+      showToast("Failed to update product", "error");
     }
   };
 
@@ -58,8 +76,10 @@ const BatchHistory = () => {
       day.products.forEach(p => {
         rows.push({
           "Date": p.date || day._id || "Unknown",
+          "Lot Number": p.packedLotNumber || p.lotNumber || "N/A",
           "Crop Name": p.name || "Unknown",
           "Variety": p.variety || "Unknown",
+          "Label Range": p.labelRange || "Random",
           "Bags Produced": p.qty || 0,
           "MRP": p.mrp || "N/A",
           "Unit Sale Price": p.usp || "N/A",
@@ -71,14 +91,34 @@ const BatchHistory = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Production_Logs");
     XLSX.writeFile(workbook, `Excel_Agri_Production_${new Date().toLocaleDateString()}.xlsx`);
+    showToast("Excel downloaded successfully!", "success");
   };
 
   return (
     <>
       <style>{`
+        /* ── TOAST NOTIFICATION CSS ── */
+        .bh-toast {
+          position: fixed; bottom: 30px; left: 30px;
+          background: #052e1c; color: white; padding: 16px 20px; border-radius: 8px;
+          box-shadow: 0 10px 40px rgba(6,78,59,0.4); z-index: 10000; display: flex; flex-direction: column; gap: 12px;
+          transform: translateX(-150%); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+          overflow: hidden; min-width: 320px; font-family: 'DM Sans', sans-serif;
+        }
+        .bh-toast.show { transform: translateX(0); }
+        .bh-toast-message { font-weight: 500; font-size: 14px; display: flex; align-items: center; gap: 12px; }
+        .bh-toast-bar-wrap { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; width: 100%; overflow: hidden; }
+        .bh-toast-bar { height: 100%; background: #e8b931; width: 100%; transform-origin: left; }
+        .bh-toast.error .bh-toast-bar { background: #f87171; }
+        .bh-toast.error .bh-toast-icon { color: #f87171; }
+        .bh-toast.success .bh-toast-icon { color: #e8b931; }
+        @keyframes bhShrinkToastBar { from { width: 100%; } to { width: 0%; } }
+        .bh-toast.show .bh-toast-bar { animation: bhShrinkToastBar 3.5s linear forwards; }
+
+        /* ── EXISTING CSS ── */
         .bh-root {
           margin-top: 32px;
-          max-width: 980px;
+          max-width: 1050px; /* Widened slightly to fit new columns */
           margin-left: auto;
           margin-right: auto;
           padding: 0 24px 60px;
@@ -226,7 +266,7 @@ const BatchHistory = () => {
           width: 100%;
           border-collapse: collapse;
           text-align: left;
-          min-width: 820px;
+          min-width: 950px;
           font-family: 'DM Sans', sans-serif;
         }
         .bh-thead tr {
@@ -428,6 +468,17 @@ const BatchHistory = () => {
         }
       `}</style>
 
+      {/* ── TOAST NOTIFICATION ── */}
+      <div className={`bh-toast ${toast.type} ${toast.visible ? 'show' : ''}`}>
+        <div className="bh-toast-message">
+          {toast.type === 'success' ? '✅ ' : '❌ '}
+          {toast.message}
+        </div>
+        <div className="bh-toast-bar-wrap">
+          <div className="bh-toast-bar"></div>
+        </div>
+      </div>
+
       <div className="bh-root">
         <div className="bh-card">
 
@@ -470,8 +521,10 @@ const BatchHistory = () => {
                       <thead className="bh-thead">
                         <tr>
                           <th className="bh-th">Date</th>
+                          <th className="bh-th">Lot No</th>
                           <th className="bh-th">Crop Name</th>
                           <th className="bh-th">Variety</th>
+                          <th className="bh-th">Label Range</th>
                           <th className="bh-th">Bags</th>
                           <th className="bh-th">MRP</th>
                           <th className="bh-th">USP</th>
@@ -483,8 +536,12 @@ const BatchHistory = () => {
                         {day.products.map((p, i) => (
                           <tr key={i} className="bh-tr">
                             <td className="bh-td bh-td-muted">{p.date || day._id}</td>
+                            <td className="bh-td bh-td-muted">{p.packedLotNumber || p.lotNumber || "N/A"}</td>
                             <td className="bh-td bh-td-bold">{p.name || "Unknown"}</td>
                             <td className="bh-td">{p.variety || "Unknown"}</td>
+                            <td className="bh-td bh-td-muted" style={{ color: '#047857' }}>
+                              {p.labelRange || "Random"}
+                            </td>
                             <td className="bh-td bh-td-bold">{p.qty || 0}</td>
                             <td className="bh-td">{p.mrp || "N/A"}</td>
                             <td className="bh-td">{p.usp || "N/A"}</td>
@@ -492,7 +549,7 @@ const BatchHistory = () => {
                             <td className="bh-td">
                               <div className="bh-actions-cell">
                                 <button onClick={() => setEditProduct(p)} className="bh-edit-btn"> Edit</button>
-                                <button onClick={() => handleDelete(p.id)} className="bh-delete-btn"> Delete</button>
+                                <button onClick={() => promptDelete(p.id)} className="bh-delete-btn"> Delete</button>
                               </div>
                             </td>
                           </tr>
@@ -506,6 +563,30 @@ const BatchHistory = () => {
           </div>
         </div>
       </div>
+
+      {/* CUSTOM DELETE CONFIRM MODAL */}
+      {deleteConfirmId && (
+        <div className="bh-overlay">
+          <div className="bh-modal" style={{ maxWidth: '400px' }}>
+            <div className="bh-modal-header" style={{ background: 'linear-gradient(135deg, #7f1d1d, #b91c1c)' }}>
+              <span style={{ fontSize: '18px' }}>⚠️</span>
+              <h3 className="bh-modal-title">Delete Batch?</h3>
+            </div>
+            <div className="bh-modal-body">
+              <p style={{ fontFamily: 'DM Sans', fontSize: '14px', color: '#1a1a1a', marginBottom: '8px' }}>
+                Are you sure you want to delete this batch?
+              </p>
+              <p style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#dc2626', fontWeight: '600', margin: 0 }}>
+                This will invalidate all associated QR labels. This action cannot be undone.
+              </p>
+            </div>
+            <div className="bh-modal-footer">
+              <button onClick={executeDelete} className="bh-save-btn" style={{ background: 'linear-gradient(135deg, #dc2626, #f87171)', boxShadow: '0 4px 14px rgba(220,38,38,0.25)' }}>Yes, Delete</button>
+              <button onClick={() => setDeleteConfirmId(null)} className="bh-cancel-btn">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* EDIT MODAL */}
       {editProduct && (
