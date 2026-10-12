@@ -3,9 +3,14 @@ import axios from 'axios';
 import * as XLSX from 'xlsx';
 
 const BatchHistory = () => {
-  const [stats, setStats] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState([]);
+  const [skip, setSkip] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  // Modal states
   const [editProduct, setEditProduct] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
@@ -19,21 +24,48 @@ const BatchHistory = () => {
     }, 3500);
   };
 
-  const fetchStats = async () => {
+  const fetchStats = async (currentSkip = 0, currentLimit = 20, isInitial = false) => {
     try {
-      const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/admin/stats`);
-      setStats(data);
+      if (isInitial) setLoading(true);
+      else setLoadingMore(true);
+
+      const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/admin/stats?skip=${currentSkip}&limit=${currentLimit}`);
+
+      let newProducts = [];
+      let more = false;
+
+      // Safely handle both the new paginated object format and the old array format
+      if (data && data.products) {
+        newProducts = data.products;
+        more = data.hasMore;
+      } else if (Array.isArray(data)) {
+        newProducts = data.flatMap(d => d.products || []);
+      }
+
+      if (isInitial) {
+        setProducts(newProducts);
+      } else {
+        setProducts(prev => [...prev, ...newProducts]);
+      }
+
+      setHasMore(more);
+      setSkip(currentSkip + currentLimit);
     } catch (err) {
       console.error("Failed to load stats:", err);
       showToast("Failed to load history data.", "error");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   useEffect(() => {
-    fetchStats();
+    fetchStats(0, 20, true);
   }, []);
+
+  const handleLoadMore = () => {
+    fetchStats(skip, 40, false);
+  };
 
   const promptDelete = (productId) => {
     setDeleteConfirmId(productId);
@@ -45,54 +77,91 @@ const BatchHistory = () => {
       await axios.delete(`${import.meta.env.VITE_BACKEND_URL}/api/admin/product/${deleteConfirmId}`);
       showToast("Batch deleted successfully", "success");
       setDeleteConfirmId(null);
-      fetchStats(); 
+      fetchStats(0, skip || 20, true); 
     } catch (error) {
       showToast("Failed to delete batch", "error");
       setDeleteConfirmId(null);
     }
   };
 
+  const handleEditChange = (field, value) => {
+    let updated = { ...editProduct, [field]: value };
+    
+    // Auto-calculate USP if MRP or NetQty changes
+    if (field === 'mrp' || field === 'netQty') {
+      const mrpVal = parseFloat(String(updated.mrp).replace(/[^0-9.]/g, ''));
+      const netQtyVal = parseFloat(String(updated.netQty).replace(/[^0-9.]/g, ''));
+      if (!isNaN(mrpVal) && !isNaN(netQtyVal) && netQtyVal > 0) {
+        updated.unitSalePrice = `Rs ${(mrpVal / netQtyVal).toFixed(2)} / Kg`;
+        updated.usp = updated.unitSalePrice; // Fallback for legacy DB schema mapping
+      }
+    }
+    setEditProduct(updated);
+  };
+
   const handleEditSave = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`${import.meta.env.VITE_BACKEND_URL}/api/admin/product/${editProduct.id}`, {
-        cropName: editProduct.name,
-        packedVariety: editProduct.variety,
+      // Use _id for the updated schema, fallback to id for the legacy
+      const targetId = editProduct._id || editProduct.id;
+      
+      await axios.put(`${import.meta.env.VITE_BACKEND_URL}/api/admin/product/${targetId}`, {
+        cropName: editProduct.cropName || editProduct.name,
+        packedVariety: editProduct.packedVariety || editProduct.variety,
         mrp: editProduct.mrp,
-        unitSalePrice: editProduct.usp,
+        unitSalePrice: editProduct.unitSalePrice || editProduct.usp,
         netQty: editProduct.netQty
       });
       showToast("Product updated successfully!", "success");
       setEditProduct(null);
-      fetchStats();
+      fetchStats(0, skip || 20, true);
     } catch (error) {
       showToast("Failed to update product", "error");
     }
   };
 
-  const downloadExcel = () => {
-    const rows = [];
-    stats.forEach(day => {
-      day.products.forEach(p => {
-        rows.push({
-          "Date": p.date || day._id || "Unknown",
-          "Lot Number": p.packedLotNumber || p.lotNumber || "N/A",
-          "Crop Name": p.name || "Unknown",
-          "Variety": p.variety || "Unknown",
-          "Label Range": p.labelRange || "Random",
-          "Bags Produced": p.qty || 0,
-          "MRP": p.mrp || "N/A",
-          "Unit Sale Price": p.usp || "N/A",
-          "Net Quantity": p.netQty || "N/A"
-        });
-      });
-    });
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Production_Logs");
-    XLSX.writeFile(workbook, `Excel_Agri_Production_${new Date().toLocaleDateString()}.xlsx`);
-    showToast("Excel downloaded successfully!", "success");
+  const downloadExcel = async () => {
+    try {
+      showToast("Compiling all records... Please wait.", "success");
+      
+      const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/admin/stats?all=true`);
+
+      let flatProducts = [];
+      if (data && data.products) flatProducts = data.products;
+      else if (Array.isArray(data)) flatProducts = data.flatMap(d => d.products || []);
+
+      const rows = flatProducts.map(p => ({
+        "Date": p.dateOfPackaging || p.date || "Unknown",
+        "Lot Number": p.packedLotNumber || p.lotNumber || "N/A",
+        "Crop Name": p.cropName || p.name || "Unknown",
+        "Variety": p.packedVariety || p.variety || "Unknown",
+        "Label Range": p.labelRange || "Random",
+        "Bags Produced": p.quantity || p.qty || 0,
+        "MRP": p.mrp || "N/A",
+        "Unit Sale Price": p.unitSalePrice || p.usp || "N/A",
+        "Net Quantity": p.netQty || "N/A"
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Production_Logs");
+      XLSX.writeFile(workbook, `Excel_Agri_Production_${new Date().toLocaleDateString()}.xlsx`);
+      
+      showToast("Excel downloaded successfully!", "success");
+    } catch (err) {
+      showToast("Failed to generate Excel download.", "error");
+    }
   };
+
+  // Group the flat array into dates on the frontend
+  const groupedStatsMap = products.reduce((acc, p) => {
+    const date = p.dateOfPackaging || p.date || "Unknown Date";
+    if (!acc[date]) acc[date] = { _id: date, products: [] };
+    acc[date].products.push(p);
+    return acc;
+  }, {});
+  
+  const stats = Object.values(groupedStatsMap).sort((a, b) => new Date(b._id) - new Date(a._id));
 
   return (
     <>
@@ -118,7 +187,7 @@ const BatchHistory = () => {
         /* ── EXISTING CSS ── */
         .bh-root {
           margin-top: 32px;
-          max-width: 1050px; /* Widened slightly to fit new columns */
+          max-width: 1050px; 
           margin-left: auto;
           margin-right: auto;
           padding: 0 24px 60px;
@@ -352,6 +421,18 @@ const BatchHistory = () => {
           transform: translateY(-1px);
         }
 
+        /* ── LOAD MORE BUTTON ── */
+        .bh-footer-actions {
+          display: flex; justify-content: center; padding-top: 10px; margin-top: 10px;
+        }
+        .bh-load-more-btn {
+          background: #fffdf9; border: 1px solid #e2d9c8; color: #065f46; 
+          padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 12px; 
+          cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif;
+        }
+        .bh-load-more-btn:hover:not(:disabled) { background: #f0ede6; border-color: #d8d0bc; }
+        .bh-load-more-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
         /* ── MODAL ── */
         .bh-overlay {
           position: fixed;
@@ -423,9 +504,15 @@ const BatchHistory = () => {
           box-sizing: border-box;
           transition: border-color 0.2s, box-shadow 0.2s;
         }
-        .bh-modal-input:focus {
+        .bh-modal-input:focus:not([readOnly]) {
           border-color: #047857;
           box-shadow: 0 0 0 3px rgba(4,120,87,0.10);
+        }
+        .bh-modal-input[readOnly] {
+          background: #f0ede6;
+          color: #8a9ab0;
+          cursor: not-allowed;
+          border-color: #e2d9c8;
         }
         .bh-modal-footer {
           display: flex;
@@ -508,57 +595,65 @@ const BatchHistory = () => {
             ) : stats.length === 0 ? (
               <div className="bh-empty">No production batches found.</div>
             ) : (
-              stats.map((day, index) => (
-                <div key={index} className="bh-day-group">
-                  <div className="bh-day-label">
-                    <span className="bh-day-label-text">Batch Group</span>
-                    <span className="bh-day-badge">{day._id || "Unknown Date"}</span>
-                    <div className="bh-day-label-line"></div>
-                  </div>
+              <>
+                {stats.map((day, index) => (
+                  <div key={index} className="bh-day-group">
+                    <div className="bh-day-label">
+                      <span className="bh-day-label-text">Batch Group</span>
+                      <span className="bh-day-badge">{day._id || "Unknown Date"}</span>
+                      <div className="bh-day-label-line"></div>
+                    </div>
 
-                  <div className="bh-table-wrap">
-                    <table className="bh-table">
-                      <thead className="bh-thead">
-                        <tr>
-                          <th className="bh-th">Date</th>
-                          <th className="bh-th">Lot No</th>
-                          <th className="bh-th">Crop Name</th>
-                          <th className="bh-th">Variety</th>
-                          <th className="bh-th">Label Range</th>
-                          <th className="bh-th">Bags</th>
-                          <th className="bh-th">MRP</th>
-                          <th className="bh-th">USP</th>
-                          <th className="bh-th">Net Qty</th>
-                          <th className="bh-th">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {day.products.map((p, i) => (
-                          <tr key={i} className="bh-tr">
-                            <td className="bh-td bh-td-muted">{p.date || day._id}</td>
-                            <td className="bh-td bh-td-muted">{p.packedLotNumber || p.lotNumber || "N/A"}</td>
-                            <td className="bh-td bh-td-bold">{p.name || "Unknown"}</td>
-                            <td className="bh-td">{p.variety || "Unknown"}</td>
-                            <td className="bh-td bh-td-muted" style={{ color: '#047857' }}>
-                              {p.labelRange || "Random"}
-                            </td>
-                            <td className="bh-td bh-td-bold">{p.qty || 0}</td>
-                            <td className="bh-td">{p.mrp || "N/A"}</td>
-                            <td className="bh-td">{p.usp || "N/A"}</td>
-                            <td className="bh-td">{p.netQty || "N/A"}</td>
-                            <td className="bh-td">
-                              <div className="bh-actions-cell">
-                                <button onClick={() => setEditProduct(p)} className="bh-edit-btn"> Edit</button>
-                                <button onClick={() => promptDelete(p.id)} className="bh-delete-btn"> Delete</button>
-                              </div>
-                            </td>
+                    <div className="bh-table-wrap">
+                      <table className="bh-table">
+                        <thead className="bh-thead">
+                          <tr>
+                            <th className="bh-th">Date</th>
+                            <th className="bh-th">Lot No</th>
+                            <th className="bh-th">Crop Name</th>
+                            <th className="bh-th">Variety</th>
+                            <th className="bh-th">Label Range</th>
+                            <th className="bh-th">Bags</th>
+                            <th className="bh-th">MRP</th>
+                            <th className="bh-th">Net Qty</th>
+                            <th className="bh-th">Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {day.products.map((p, i) => (
+                            <tr key={i} className="bh-tr">
+                              <td className="bh-td bh-td-muted">{p.dateOfPackaging || p.date || day._id}</td>
+                              <td className="bh-td bh-td-muted">{p.packedLotNumber || p.lotNumber || "N/A"}</td>
+                              <td className="bh-td bh-td-bold">{p.cropName || p.name || "Unknown"}</td>
+                              <td className="bh-td">{p.packedVariety || p.variety || "Unknown"}</td>
+                              <td className="bh-td bh-td-muted" style={{ color: '#047857', fontWeight: '500' }}>
+                                {p.labelRange || "Random"}
+                              </td>
+                              <td className="bh-td bh-td-bold">{p.quantity || p.qty || 0}</td>
+                              <td className="bh-td">{p.mrp || "N/A"}</td>
+                              <td className="bh-td">{p.netQty || "N/A"}</td>
+                              <td className="bh-td">
+                                <div className="bh-actions-cell">
+                                  <button onClick={() => setEditProduct(p)} className="bh-edit-btn"> Edit</button>
+                                  <button onClick={() => promptDelete(p._id || p.id)} className="bh-delete-btn"> Delete</button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+                
+                {hasMore && (
+                  <div className="bh-footer-actions">
+                    <button onClick={handleLoadMore} className="bh-load-more-btn" disabled={loadingMore}>
+                      {loadingMore ? 'Loading Data...' : 'Load Next 40 Batches'}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -599,19 +694,19 @@ const BatchHistory = () => {
             <form onSubmit={handleEditSave}>
               <div className="bh-modal-body">
                 <label className="bh-modal-label">Crop Name</label>
-                <input className="bh-modal-input" value={editProduct.name} onChange={(e) => setEditProduct({...editProduct, name: e.target.value})} />
+                <input className="bh-modal-input" value={editProduct.cropName || editProduct.name || ''} onChange={(e) => handleEditChange(editProduct.cropName !== undefined ? 'cropName' : 'name', e.target.value)} />
 
                 <label className="bh-modal-label">Variety</label>
-                <input className="bh-modal-input" value={editProduct.variety} onChange={(e) => setEditProduct({...editProduct, variety: e.target.value})} />
+                <input className="bh-modal-input" value={editProduct.packedVariety || editProduct.variety || ''} onChange={(e) => handleEditChange(editProduct.packedVariety !== undefined ? 'packedVariety' : 'variety', e.target.value)} />
 
                 <label className="bh-modal-label">MRP</label>
-                <input className="bh-modal-input" value={editProduct.mrp} onChange={(e) => setEditProduct({...editProduct, mrp: e.target.value})} />
-
-                <label className="bh-modal-label">Unit Sale Price (USP)</label>
-                <input className="bh-modal-input" value={editProduct.usp} onChange={(e) => setEditProduct({...editProduct, usp: e.target.value})} />
+                <input className="bh-modal-input" value={editProduct.mrp || ''} onChange={(e) => handleEditChange('mrp', e.target.value)} />
 
                 <label className="bh-modal-label">Net Quantity</label>
-                <input className="bh-modal-input" value={editProduct.netQty} onChange={(e) => setEditProduct({...editProduct, netQty: e.target.value})} />
+                <input className="bh-modal-input" value={editProduct.netQty || ''} onChange={(e) => handleEditChange('netQty', e.target.value)} />
+
+                <label className="bh-modal-label">Unit Sale Price (Auto-calculated)</label>
+                <input className="bh-modal-input" value={editProduct.unitSalePrice || editProduct.usp || ''} readOnly />
               </div>
               <div className="bh-modal-footer">
                 <button type="submit" className="bh-save-btn">Save Changes</button>
